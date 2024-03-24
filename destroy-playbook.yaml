@@ -1,0 +1,8 @@
+---
+- name: Destroy ABN Amro stack
+  hosts: localhost
+  vars:
+    kind_cluster_name: abn-assessment-cluster
+  tasks:
+    - name: Destroy local k8s cluster.
+      ansible.builtin.command: kind delete cluster -n {{ kind_cluster_name }}

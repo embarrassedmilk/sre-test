@@ -1,0 +1,51 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.abnBackendApi.service.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: {{ .Values.abnBackendApi.deployment.name }}
+  ports:
+    - protocol: "TCP"
+      port: {{ .Values.abnBackendApi.service.port }}
+      targetPort: {{ .Values.abnBackendApi.service.targetPort }}
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.abnBackendApi.deployment.name }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.abnBackendApi.deployment.name }}
+  replicas: {{ .Values.abnBackendApi.deployment.replicas }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.abnBackendApi.deployment.name }}
+    spec:
+      containers:
+        - name:  {{ .Values.abnBackendApi.deployment.name }}
+          image: {{ .Values.abnBackendApi.deployment.image }}
+          imagePullPolicy: {{ .Values.abnBackendApi.deployment.imagePullPolicy }}
+          env:
+          - name: EXTERNAL_INTGERATION_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.abnBackendApi.secrets.external_integration_secret_name }}
+                key: EXTERNAL_INTGERATION_KEY
+          envFrom:
+          - configMapRef:
+              name: {{ .Values.abnBackendApi.configMap.name }}
+          ports:
+            - containerPort: {{ .Values.abnBackendApi.deployment.containerPort }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.abnBackendApi.health_check.path }}
+              port: {{ .Values.abnBackendApi.deployment.containerPort }}
+            initialDelaySeconds: 3
+            periodSeconds: 3

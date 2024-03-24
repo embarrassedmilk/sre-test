@@ -1,0 +1,44 @@
+---
+- name: Deploy ABN Amro stack
+  hosts: localhost
+  vars:
+    kind_cluster_name: abn-assessment-cluster
+    abn_backend_image_name: abn-backend
+    abn_data_image_name: abn-data
+  tasks:
+    - name: Create local k8s cluster.
+      ansible.builtin.command: kind create cluster --config "kind-cluster.yaml"
+    - name: Download Ingress manifest.
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        dest: ./nginx-kind.yaml
+        mode: '0664'
+    - name: Apply Ingress manifest to the cluster.
+      kubernetes.core.k8s:
+        state: present
+        src: ./nginx-kind.yaml
+    - name: Build Backend API Docker image
+      community.docker.docker_image:
+        name: "{{ abn_backend_image_name }}"
+        build:
+          path: backend_api
+        force_source: true
+        source: build
+    - name: Build Data API Docker image
+      community.docker.docker_image:
+        name: "{{ abn_data_image_name }}"
+        build:
+          path: data_api
+        force_source: true
+        source: build
+    - name: Upload latest Backend API Docker image
+      ansible.builtin.command: kind load docker-image {{ abn_backend_image_name }} -n {{ kind_cluster_name }}
+    - name: Upload latest Data API Docker image
+      ansible.builtin.command: kind load docker-image {{ abn_data_image_name }} -n {{ kind_cluster_name }}
+    - name: Deploy latest version of ABN Amro stack
+      kubernetes.core.helm:
+        name: abn-stack
+        chart_ref: ./helm/abn-assessment
+        release_namespace: abn-assessment
+        create_namespace: true
+        force: true
